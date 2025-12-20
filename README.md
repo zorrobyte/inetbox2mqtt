@@ -36,7 +36,7 @@ Flexible debugging and the possibility to write log-files to solve problems is i
 
 The current version opens flexibility to use different hardware cofigurations.  
 
-***The development of this software and also just the maintenance in the different variants has already cost many hours of time. This is only possible with your support. Many thanks for this in advance.
+***The development of this software and also just the maintenance in the different variants has already cost many hours of time. This is only possible with your support. Many thanks for this in advance.***
 
 The software works on all ESP32 models and probably, with small adjustments (UART address, pins), also on other hardware. It also runs on a Raspberry Pi Pico W. I will not always mention the RP2 pico w explicitly in the following. The variations are bundled in tools.py and you can find the explanation under **Run on different devices** for details. 
 
