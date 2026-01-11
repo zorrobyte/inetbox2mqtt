@@ -1,1 +1,2 @@
-hw=RP2
+hw=ESP32S3_CAN_LIN_rev_B 
+lin_console=1

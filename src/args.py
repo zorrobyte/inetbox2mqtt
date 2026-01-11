@@ -24,24 +24,60 @@ class Args():
             self.fn = fn
         else:
             self.fn = self.__ARGS
-        if self.fn in os.listdir("/"):
+        # Check if file exists (handle both root and full paths)
+        # MicroPython doesn't have os.path.exists, so use try/except
+        file_exists = False
+        try:
+            # Try to check if file is in root directory
+            if self.fn in os.listdir("/"):
+                file_exists = True
+            # For full paths (like /src/args.dat), try to open it
+            elif "/" in self.fn:
+                try:
+                    with open(self.fn, "r") as f:
+                        pass  # File exists if we can open it
+                    file_exists = True
+                except:
+                    file_exists = False
+        except:
+            file_exists = False
+        
+        if file_exists:
             self.log.info("args_file found -> loaded")
             self.load()
                        
     def reset(self):
         self.__arg = ""
-        os.remove(self.fn)
+        try:
+            os.remove(self.fn)
+        except OSError as e:
+            self.log.warning(f"Could not remove {self.fn}: {e}")
+        except Exception as e:
+            self.log.error(f"Unexpected error removing {self.fn}: {e}")
         
     def load(self):
-        if self.fn in os.listdir("/"):
+        # Handle both root files and full paths
+        # MicroPython doesn't have os.path.exists, so use try/except
+        try:
             with open(self.fn, "r") as f:
                 self.__arg = f.read()
                 self.log.info(f"file: {self.fn} content: {self.__arg}")
+        except OSError as e:
+            self.log.warning(f"Could not read {self.fn}: {e}")
+            self.__arg = ""
+        except Exception as e:
+            self.log.error(f"Unexpected error reading {self.fn}: {e}")
+            self.__arg = ""
             
     def store(self, s):
-        with open(self.fn, "w") as f:
+        try:
+            with open(self.fn, "w") as f:
                 f.write(s)
-        self.__arg = s
+            self.__arg = s
+        except OSError as e:
+            self.log.warning(f"Could not write {self.fn}: {e}")
+        except Exception as e:
+            self.log.error(f"Unexpected error writing {self.fn}: {e}")
         
     def check(self, s):
         return s in self.__arg

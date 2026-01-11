@@ -6,8 +6,12 @@
 #
 import logging
 import time
-import connect
+import sys
 import machine, os
+# Add lib and src to path so we can import modules
+sys.path.insert(0, '/lib')
+sys.path.insert(0, '/src')
+import connect
 from args import Args
 
 UPDATE = "update.py"
@@ -19,7 +23,7 @@ rel_no = "2.6.5"
 #sleep to give some boards time to initialize, for example Rpi Pico W
 time.sleep(3)
 
-args = Args()
+args = Args("/src/args.dat")
 
 file = args.get_key("file")
 if file != None:

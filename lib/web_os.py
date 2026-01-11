@@ -16,7 +16,7 @@ import random
 
 
 log = logging.getLogger(__name__)
-naw = Nanoweb(100)
+naw = Nanoweb(80)  # Changed from 100 to 80 to match web server port
 # client = MQTTClient(config)
 test_mqtt = False
 
@@ -335,3 +335,16 @@ async def set_dir(r):
         await r.write("HTTP/1.1 200 OK\r\n")
         await send_file(r, gh.handleFiles(new_dir))
 
+@naw.route('/lin_debug')
+async def lin_debug(r):
+    global gh
+    await r.write("HTTP/1.1 200 OK\r\n\r\n")
+    await send_file(r, gh.handleLinDebug())
+
+@naw.route('/lin_debug_clear')
+async def lin_debug_clear(r):
+    global lin
+    if lin:
+        lin.clear_debug_output()
+    await r.write("HTTP/1.1 200 OK\r\n\r\n")
+    await r.write(gh.handleMessage("LIN debug buffer cleared", "/lin_debug", "Back", ("1", "/lin_debug")))

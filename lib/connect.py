@@ -22,7 +22,7 @@ from crypto_keys import fn_crypto as crypt
 from machine import reset, soft_reset, Pin
 from mqtt_async2 import MQTTClient, config
 import uasyncio as asyncio
-from tools import PIN_MAPS, PIN_MAP
+from src.tools import PIN_MAPS, PIN_MAP
 
 
 class Connect():
