@@ -386,7 +386,13 @@ def run(w, lin_debug, inet_debug, mqtt_debug, logfile):
         sl = spirit_level(i2c)
         
     # Initialize the lin-object
-    lin = Lin(serial, w.p, lin_debug, inet_debug)
+    # Read lin_console flag from args.dat
+    from args import Args
+    args = Args("/src/args.dat")
+    lin_console = args.get_key("lin_console") == "1"
+    if lin_console:
+        log.info("LIN console logging enabled - all bus activity will be dumped to console")
+    lin = Lin(serial, w.p, lin_debug, inet_debug, lin_console)
     if cred["TOPIC"] != "":
         topic_root = cred["TOPIC"]
         

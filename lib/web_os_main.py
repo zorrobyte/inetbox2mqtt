@@ -44,12 +44,17 @@ def run(w, lin_debug, inet_debug, webos_debug, naw_debug, logfile):
     global lin
     global connect
     connect = w
+    # Use the existing Nanoweb instance from web_os module (with routes already registered)
+    # Just update its port and debug settings
+    import web_os
+    naw = web_os.naw
+    naw.port = 80  # Set correct port
     if naw_debug:
         log.setLevel(logging.DEBUG)
-        naw = Nanoweb(80, debug = True)
+        naw.debug = True
     else:    
         log.setLevel(logging.INFO)
-        naw = Nanoweb(80)
+        naw.debug = False
 
     # connect.set_proc(subscript = connect.callback, connect = connect.conn_callback)
         
@@ -76,8 +81,8 @@ def run(w, lin_debug, inet_debug, webos_debug, naw_debug, logfile):
 #     else:
 #         log.debug("No compatible Board found!")
         
-    # Initialize the lin-object
-    lin = Lin(serial, w.p, lin_debug, inet_debug)
+    # Initialize the lin-object (lin_console defaults to False for web_os mode)
+    lin = Lin(serial, w.p, lin_debug, inet_debug, False)
     os.init(w, lin, naw, webos_debug, logfile)
 
     naw.STATIC_DIR = "/"
@@ -88,9 +93,11 @@ def run(w, lin_debug, inet_debug, webos_debug, naw_debug, logfile):
 
     loop = asyncio.get_event_loop()
     log.info("Start nanoweb server")
-    loop.create_task(naw.run())
+    # naw.run() returns a server object that needs to be started
+    server_task = loop.create_task(naw.run())
     loop.create_task(lin_loop())
 #    loop.create_task(mqtt_loop())
     log.info("Start OS command loop")
     loop.create_task(os.command_loop())
+    log.info("Event loop starting - web server should be accessible at http://192.168.4.1/")
     loop.run_forever()        
