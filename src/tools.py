@@ -128,6 +128,27 @@ PIN_MAPS = {
     "sl_scl": 3,
     },
     
+    "ESP32S3_CAN_LIN_rev_B":
+    {
+    "logic": "esp32",
+    "mqtt_led": 39,
+    "lin_led": 40,
+    "lan": 0,
+    "mdc" : 0,
+    "mdio": 0,
+    "ref_clk": 0,
+    "lin_uart": 1,
+    "lin_rx": 1,
+    "lin_tx": 10,
+    "dc_green_pin": [1, 5, 1], 
+    "dc_red_pin": [1, 6, 1],
+    "dc_i_pin": [0, 7, 1], 
+    "dc_ii_pin": [0, 15, 1], 
+    "sl_i2c": 1,
+    "sl_sda": 42,
+    "sl_scl": 41,
+    },
+    
     }
     
 

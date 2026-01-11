@@ -7,11 +7,14 @@
 # This snippet should you include in your software project to use the wifi manager 
 
 import logging
+import sys
 import web_os as os
 from nanoweb import Nanoweb
 import uasyncio as asyncio
 from machine import UART, Pin
-from lin import Lin
+# Add src to path for lin import
+sys.path.insert(0, '/src')
+from src.lin import Lin
 
 
 
