@@ -8,10 +8,11 @@ import logging
 import time
 import sys
 import machine, os
-# Add lib to path so we can import connect
+# Add lib and src to path so we can import modules
 sys.path.insert(0, '/lib')
+sys.path.insert(0, '/src')
 import connect
-from src.args import Args
+from args import Args
 
 UPDATE = "update.py"
 

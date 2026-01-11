@@ -24,7 +24,11 @@ class Args():
             self.fn = fn
         else:
             self.fn = self.__ARGS
-        if self.fn in os.listdir("/"):
+        # Check if file exists (handle both root and full paths)
+        if os.path.exists(self.fn):
+            self.log.info("args_file found -> loaded")
+            self.load()
+        elif self.fn in os.listdir("/"):
             self.log.info("args_file found -> loaded")
             self.load()
                        
@@ -33,7 +37,12 @@ class Args():
         os.remove(self.fn)
         
     def load(self):
-        if self.fn in os.listdir("/"):
+        # Handle both root files and full paths
+        if os.path.exists(self.fn):
+            with open(self.fn, "r") as f:
+                self.__arg = f.read()
+                self.log.info(f"file: {self.fn} content: {self.__arg}")
+        elif self.fn in os.listdir("/"):
             with open(self.fn, "r") as f:
                 self.__arg = f.read()
                 self.log.info(f"file: {self.fn} content: {self.__arg}")

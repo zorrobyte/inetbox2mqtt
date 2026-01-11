@@ -43,6 +43,11 @@ lin = None
 dc = None
 sl = None
 
+# Queue for HA autoconfig requests from synchronous MQTT callback
+# Using list + Event since MicroPython uasyncio doesn't have Queue
+ha_config_queue = []
+ha_config_event = asyncio.Event()
+
 # Change the following configs to suit your environment
 topic_root      = 'truma'
 S_TOPIC_1	= ''
@@ -158,7 +163,12 @@ def callback(topic, msg, retained, qos):
     # HA-server send ONLINE message        
     if (topic == S_TOPIC_2) and (msg == 'online'):
         log.info("Received HOMEASSISTANT-online message")
-        await set_ha_autoconfig(connect.client)
+        # Queue request for async processing (decouples sync callback from async work)
+        try:
+            ha_config_queue.append(True)
+            ha_config_event.set()  # Signal that item is available
+        except:
+            log.debug("Could not queue HA autoconfig request")
 
 
 # Initialze the subscripted topics
@@ -270,10 +280,30 @@ async def sl_loop():
         #print("Angle X: " + str(sl.get_roll()) + "      Angle Y: " +str(sl.get_pitch()) )
         await asyncio.sleep_ms(100)
 
+# Process HA autoconfig requests from queue (called from sync MQTT callback)
+async def process_ha_config():
+    global connect
+    await asyncio.sleep(1) # Delay at begin
+    log.info("HA autoconfig processor is running")
+    while True:
+        try:
+            # Wait for event signal that item is available
+            await ha_config_event.wait()
+            # Process all queued items
+            while ha_config_queue:
+                ha_config_queue.pop(0)  # Remove item from queue
+                await set_ha_autoconfig(connect.client)
+            ha_config_event.clear()  # Clear event for next wait
+        except Exception as e:
+            log.error(f"HA autoconfig failed: {e}")
+            ha_config_event.clear()  # Clear on error too
+        await asyncio.sleep_ms(100)
+
 async def ctrl_loop():
     loop = asyncio.get_event_loop()
     a=asyncio.create_task(main())
     b=asyncio.create_task(lin_loop())
+    e=asyncio.create_task(process_ha_config())  # HA autoconfig queue processor
     if not(dc == None):
         c=asyncio.create_task(dc_loop())
     if not(sl == None):
@@ -286,6 +316,9 @@ async def ctrl_loop():
         if b.done():
             log.info("Restart lin_loop")
             b=asyncio.create_task(lin_loop())
+        if e.done():
+            log.info("Restart ha_config processor")
+            e=asyncio.create_task(process_ha_config())
     
 
 def run(w, lin_debug, inet_debug, mqtt_debug, logfile):
