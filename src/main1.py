@@ -96,7 +96,6 @@ def set_prefix(topic):
         "operating_status":      ['homeassistant/sensor/operating_status/config', '{"name": "' + topic_root + '_operating_status", "model": "' + HA_MODEL + '", "sw_version":"' + HA_SWV + '", "state_topic": "' + HA_STOPIC + 'operating_status"}'],
         "aircon_operating_mode": ['homeassistant/sensor/aircon_operating_mode/config', '{"name": "' + topic_root + '_aircon_operating_mode", "model": "' + HA_MODEL + '", "sw_version":"' + HA_SWV + '", "state_topic": "' + HA_STOPIC + 'aircon_operating_mode"}'],
         "aircon_vent_mode":      ['homeassistant/sensor/aircon_vent_mode/config', '{"name": "' + topic_root + '_aircon_vent_mode", "model": "' + HA_MODEL + '", "sw_version":"' + HA_SWV + '", "state_topic": "' + HA_STOPIC + 'aircon_vent_mode"}'],
-        "operating_status":      ['homeassistant/sensor/operating_status/config', '{"name": "' + topic_root + '_operating_status", "model": "' + HA_MODEL + '", "sw_version":"' + HA_SWV + '", "state_topic": "' + HA_STOPIC + 'operating_status"}'],
         "error_code":            ['homeassistant/sensor/error_code/config', '{"name": "' + topic_root + '_error_code", "model": "' + HA_MODEL + '", "sw_version":"' + HA_SWV + '", "state_topic": "' + HA_STOPIC + 'error_code"}'],
         "clock":                 ['homeassistant/sensor/clock/config', '{"name": "' + topic_root + '_clock", "model": "' + HA_MODEL + '", "sw_version":"' + HA_SWV + '", "state_topic": "' + HA_STOPIC + 'clock"}'],
         "set_target_temp_room":  ['homeassistant/select/target_temp_room/config', '{"name": "' + topic_root + '_set_roomtemp", "model": "' + HA_MODEL + '", "sw_version":"' + HA_SWV + '", "command_topic": "' + HA_CTOPIC + 'target_temp_room", "options": ["0", "10", "15", "18", "20", "21", "22"] }'],
@@ -116,10 +115,26 @@ def set_prefix(topic):
 def callback(topic, msg, retained, qos):
     global connect
     log.debug(f"received: {topic}: {msg}")
-    topic = str(topic)
-    topic = topic[2:-1]
-    msg = str(msg)
-    msg = msg[2:-1]
+    # Handle bytes/string conversion properly
+    if isinstance(topic, bytes):
+        topic = topic.decode('utf-8')
+    else:
+        topic = str(topic)
+        # Remove b'...' wrapper if present
+        if topic.startswith("b'") and topic.endswith("'"):
+            topic = topic[2:-1]
+        elif topic.startswith('b"') and topic.endswith('"'):
+            topic = topic[2:-1]
+    
+    if isinstance(msg, bytes):
+        msg = msg.decode('utf-8')
+    else:
+        msg = str(msg)
+        # Remove b'...' wrapper if present
+        if msg.startswith("b'") and msg.endswith("'"):
+            msg = msg[2:-1]
+        elif msg.startswith('b"') and msg.endswith('"'):
+            msg = msg[2:-1]
     # Command received from broker
     if topic.startswith(S_TOPIC_1):
         topic = topic[len(S_TOPIC_1):]
@@ -141,12 +156,12 @@ def callback(topic, msg, retained, qos):
                 soft_reset()
             return
 #        log.info("Received command: "+str(topic)+" payload: "+str(msg))
-        if topic in lin.app.status.keys():
+        if lin and lin.app and topic in lin.app.status:
             log.info("inet-key:"+str(topic)+" value: "+str(msg))
             try:
                 lin.app.set_status(topic, msg)
             except Exception as e:
-                log.debug(Exception(e))
+                log.debug(f"Error setting status for {topic}: {e}")
                 # send via mqtt
         elif not(dc == None):
             if topic in dc.status.keys():
@@ -154,7 +169,7 @@ def callback(topic, msg, retained, qos):
                 try:
                     dc.set_status(topic, msg)
                 except Exception as e:
-                    log.debug(Exception(e))
+                    log.debug(f"Error setting dc status for {topic}: {e}")
                     # send via mqtt
             else:
                 log.debug("key incl. dc is unkown")
