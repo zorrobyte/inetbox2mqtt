@@ -43,11 +43,6 @@ lin = None
 dc = None
 sl = None
 
-# Queue for HA autoconfig requests from synchronous MQTT callback
-# Using list + Event since MicroPython uasyncio doesn't have Queue
-ha_config_queue = []
-ha_config_event = asyncio.Event()
-
 # Change the following configs to suit your environment
 topic_root      = 'truma'
 S_TOPIC_1	= ''
@@ -96,6 +91,7 @@ def set_prefix(topic):
         "operating_status":      ['homeassistant/sensor/operating_status/config', '{"name": "' + topic_root + '_operating_status", "model": "' + HA_MODEL + '", "sw_version":"' + HA_SWV + '", "state_topic": "' + HA_STOPIC + 'operating_status"}'],
         "aircon_operating_mode": ['homeassistant/sensor/aircon_operating_mode/config', '{"name": "' + topic_root + '_aircon_operating_mode", "model": "' + HA_MODEL + '", "sw_version":"' + HA_SWV + '", "state_topic": "' + HA_STOPIC + 'aircon_operating_mode"}'],
         "aircon_vent_mode":      ['homeassistant/sensor/aircon_vent_mode/config', '{"name": "' + topic_root + '_aircon_vent_mode", "model": "' + HA_MODEL + '", "sw_version":"' + HA_SWV + '", "state_topic": "' + HA_STOPIC + 'aircon_vent_mode"}'],
+        "operating_status":      ['homeassistant/sensor/operating_status/config', '{"name": "' + topic_root + '_operating_status", "model": "' + HA_MODEL + '", "sw_version":"' + HA_SWV + '", "state_topic": "' + HA_STOPIC + 'operating_status"}'],
         "error_code":            ['homeassistant/sensor/error_code/config', '{"name": "' + topic_root + '_error_code", "model": "' + HA_MODEL + '", "sw_version":"' + HA_SWV + '", "state_topic": "' + HA_STOPIC + 'error_code"}'],
         "clock":                 ['homeassistant/sensor/clock/config', '{"name": "' + topic_root + '_clock", "model": "' + HA_MODEL + '", "sw_version":"' + HA_SWV + '", "state_topic": "' + HA_STOPIC + 'clock"}'],
         "set_target_temp_room":  ['homeassistant/select/target_temp_room/config', '{"name": "' + topic_root + '_set_roomtemp", "model": "' + HA_MODEL + '", "sw_version":"' + HA_SWV + '", "command_topic": "' + HA_CTOPIC + 'target_temp_room", "options": ["0", "10", "15", "18", "20", "21", "22"] }'],
@@ -115,26 +111,10 @@ def set_prefix(topic):
 def callback(topic, msg, retained, qos):
     global connect
     log.debug(f"received: {topic}: {msg}")
-    # Handle bytes/string conversion properly
-    if isinstance(topic, bytes):
-        topic = topic.decode('utf-8')
-    else:
-        topic = str(topic)
-        # Remove b'...' wrapper if present
-        if topic.startswith("b'") and topic.endswith("'"):
-            topic = topic[2:-1]
-        elif topic.startswith('b"') and topic.endswith('"'):
-            topic = topic[2:-1]
-    
-    if isinstance(msg, bytes):
-        msg = msg.decode('utf-8')
-    else:
-        msg = str(msg)
-        # Remove b'...' wrapper if present
-        if msg.startswith("b'") and msg.endswith("'"):
-            msg = msg[2:-1]
-        elif msg.startswith('b"') and msg.endswith('"'):
-            msg = msg[2:-1]
+    topic = str(topic)
+    topic = topic[2:-1]
+    msg = str(msg)
+    msg = msg[2:-1]
     # Command received from broker
     if topic.startswith(S_TOPIC_1):
         topic = topic[len(S_TOPIC_1):]
@@ -156,12 +136,12 @@ def callback(topic, msg, retained, qos):
                 soft_reset()
             return
 #        log.info("Received command: "+str(topic)+" payload: "+str(msg))
-        if lin and lin.app and topic in lin.app.status:
+        if topic in lin.app.status.keys():
             log.info("inet-key:"+str(topic)+" value: "+str(msg))
             try:
                 lin.app.set_status(topic, msg)
             except Exception as e:
-                log.debug(f"Error setting status for {topic}: {e}")
+                log.debug(Exception(e))
                 # send via mqtt
         elif not(dc == None):
             if topic in dc.status.keys():
@@ -169,7 +149,7 @@ def callback(topic, msg, retained, qos):
                 try:
                     dc.set_status(topic, msg)
                 except Exception as e:
-                    log.debug(f"Error setting dc status for {topic}: {e}")
+                    log.debug(Exception(e))
                     # send via mqtt
             else:
                 log.debug("key incl. dc is unkown")
@@ -178,12 +158,7 @@ def callback(topic, msg, retained, qos):
     # HA-server send ONLINE message        
     if (topic == S_TOPIC_2) and (msg == 'online'):
         log.info("Received HOMEASSISTANT-online message")
-        # Queue request for async processing (decouples sync callback from async work)
-        try:
-            ha_config_queue.append(True)
-            ha_config_event.set()  # Signal that item is available
-        except:
-            log.debug("Could not queue HA autoconfig request")
+        await set_ha_autoconfig(connect.client)
 
 
 # Initialze the subscripted topics
@@ -295,30 +270,10 @@ async def sl_loop():
         #print("Angle X: " + str(sl.get_roll()) + "      Angle Y: " +str(sl.get_pitch()) )
         await asyncio.sleep_ms(100)
 
-# Process HA autoconfig requests from queue (called from sync MQTT callback)
-async def process_ha_config():
-    global connect
-    await asyncio.sleep(1) # Delay at begin
-    log.info("HA autoconfig processor is running")
-    while True:
-        try:
-            # Wait for event signal that item is available
-            await ha_config_event.wait()
-            # Process all queued items
-            while ha_config_queue:
-                ha_config_queue.pop(0)  # Remove item from queue
-                await set_ha_autoconfig(connect.client)
-            ha_config_event.clear()  # Clear event for next wait
-        except Exception as e:
-            log.error(f"HA autoconfig failed: {e}")
-            ha_config_event.clear()  # Clear on error too
-        await asyncio.sleep_ms(100)
-
 async def ctrl_loop():
     loop = asyncio.get_event_loop()
     a=asyncio.create_task(main())
     b=asyncio.create_task(lin_loop())
-    e=asyncio.create_task(process_ha_config())  # HA autoconfig queue processor
     if not(dc == None):
         c=asyncio.create_task(dc_loop())
     if not(sl == None):
@@ -331,9 +286,6 @@ async def ctrl_loop():
         if b.done():
             log.info("Restart lin_loop")
             b=asyncio.create_task(lin_loop())
-        if e.done():
-            log.info("Restart ha_config processor")
-            e=asyncio.create_task(process_ha_config())
     
 
 def run(w, lin_debug, inet_debug, mqtt_debug, logfile):
@@ -386,13 +338,7 @@ def run(w, lin_debug, inet_debug, mqtt_debug, logfile):
         sl = spirit_level(i2c)
         
     # Initialize the lin-object
-    # Read lin_console flag from args.dat
-    from args import Args
-    args = Args("/src/args.dat")
-    lin_console = args.get_key("lin_console") == "1"
-    if lin_console:
-        log.info("LIN console logging enabled - all bus activity will be dumped to console")
-    lin = Lin(serial, w.p, lin_debug, inet_debug, lin_console)
+    lin = Lin(serial, w.p, lin_debug, inet_debug)
     if cred["TOPIC"] != "":
         topic_root = cred["TOPIC"]
         

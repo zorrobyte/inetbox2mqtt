@@ -7,14 +7,11 @@
 # This snippet should you include in your software project to use the wifi manager 
 
 import logging
-import sys
 import web_os as os
 from nanoweb import Nanoweb
 import uasyncio as asyncio
 from machine import UART, Pin
-# Add src to path for lin import
-sys.path.insert(0, '/src')
-from src.lin import Lin
+from lin import Lin
 
 
 
@@ -44,17 +41,12 @@ def run(w, lin_debug, inet_debug, webos_debug, naw_debug, logfile):
     global lin
     global connect
     connect = w
-    # Use the existing Nanoweb instance from web_os module (with routes already registered)
-    # Just update its port and debug settings
-    import web_os
-    naw = web_os.naw
-    naw.port = 80  # Set correct port
     if naw_debug:
         log.setLevel(logging.DEBUG)
-        naw.debug = True
+        naw = Nanoweb(80, debug = True)
     else:    
         log.setLevel(logging.INFO)
-        naw.debug = False
+        naw = Nanoweb(80)
 
     # connect.set_proc(subscript = connect.callback, connect = connect.conn_callback)
         
@@ -81,8 +73,8 @@ def run(w, lin_debug, inet_debug, webos_debug, naw_debug, logfile):
 #     else:
 #         log.debug("No compatible Board found!")
         
-    # Initialize the lin-object (lin_console defaults to False for web_os mode)
-    lin = Lin(serial, w.p, lin_debug, inet_debug, False)
+    # Initialize the lin-object
+    lin = Lin(serial, w.p, lin_debug, inet_debug)
     os.init(w, lin, naw, webos_debug, logfile)
 
     naw.STATIC_DIR = "/"
@@ -93,11 +85,9 @@ def run(w, lin_debug, inet_debug, webos_debug, naw_debug, logfile):
 
     loop = asyncio.get_event_loop()
     log.info("Start nanoweb server")
-    # naw.run() returns a server object that needs to be started
-    server_task = loop.create_task(naw.run())
+    loop.create_task(naw.run())
     loop.create_task(lin_loop())
 #    loop.create_task(mqtt_loop())
     log.info("Start OS command loop")
     loop.create_task(os.command_loop())
-    log.info("Event loop starting - web server should be accessible at http://192.168.4.1/")
     loop.run_forever()        

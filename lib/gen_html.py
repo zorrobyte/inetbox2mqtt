@@ -160,8 +160,6 @@ class Gen_Html():
             f.write(self.handleGet("/ts","Send MQTT message"))
         else:    
             f.write(self.handleGet("/ts","No MQTT..."))
-        # Always show LIN Debug Output button (page will show status)
-        f.write(self.handleGet("/lin_debug","LIN Debug Output") + "\n")
         f.write(self.handleGet("/dir/__","Filemanager") + "<p>")
         if self.connect.run_mode() == 1:
             f.write(self.handleGet("/rm", "Normal RUN after reboot"))
@@ -296,47 +294,5 @@ class Gen_Html():
         f.write(self.handleFooter())
         f.close()
         return "cred.html"
-
-    def handleLinDebug(self):
-        """Generate HTML page showing LIN debug output"""
-        f = open("lin_debug.html","w")
-        f.write(self.handleHeader("LIN Debug Output", refresh = ("2", "/lin_debug")))
-        
-        # Check if LIN console logging is enabled
-        lin_console_enabled = False
-        try:
-            import sys
-            sys.path.insert(0, '/src')
-            from args import Args
-            args = Args("/src/args.dat")
-            lin_console_enabled = (args.get_key("lin_console") == "1")
-        except:
-            pass
-        
-        if not lin_console_enabled:
-            f.write("<div class='message' style='background-color: #fff3cd; color: #856404; padding: 15px; border: 1px solid #ffc107; border-radius: 5px; margin: 10px;'>")
-            f.write("<strong>LIN Console Logging is Disabled</strong><br><br>")
-            f.write("To enable LIN bus activity logging, set <code>lin_console=1</code> in <code>/src/args.dat</code> and reboot the device.<br>")
-            f.write("You can edit this file using the Filemanager.")
-            f.write("</div>")
-        else:
-            # Get LIN debug output
-            debug_lines = []
-            if self.lin:
-                debug_lines = self.lin.get_debug_output()
-            
-            if len(debug_lines) == 0:
-                f.write("<div class='message'>No LIN debug output yet. LIN bus activity will appear here once data is received.</div>")
-            else:
-                f.write("<div style='background-color: black; color: #00ff00; font-family: monospace; padding: 10px; overflow-x: auto; max-height: 600px; overflow-y: auto;'>")
-                # Show most recent lines first (reverse order)
-                for line in reversed(debug_lines[-100:]):  # Show last 100 lines
-                    f.write("<div class='entry_s'>" + line.replace("<", "&lt;").replace(">", "&gt;") + "</div>")
-                f.write("</div>")
-                f.write("<br>" + self.handleGet("/lin_debug_clear", "Clear Buffer"))
-        
-        f.write(self.handleFooter())
-        f.close()
-        return "lin_debug.html"
 
 

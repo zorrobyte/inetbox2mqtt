@@ -34,9 +34,6 @@ class Lin:
     cnt_in = 0
 # Same approach for the raw PID 0xD8. This corresponds to a PID 0x18
     d8_alive = False
-    # Buffer for LIN console debug output (for web UI display)
-    lin_debug_buffer = []
-    LIN_DEBUG_BUFFER_MAX = 200  # Maximum number of lines to keep
 
 
     # Only for display control / slow event timing
@@ -63,20 +60,17 @@ class Lin:
     BUFFER_HEADER_WRITE = bytes([0x0C, 0x32])
 
 
-    def __init__(self, serial, pin_map, lin_debug, inet_debug, lin_console=False):
+    def __init__(self, serial, pin_map, lin_debug, inet_debug):
         self.loop_state = False
         self.serial = serial
         self.pin_map = pin_map
         self.cnt_rows = 1
         if lin_debug:
             self.log.setLevel(logging.DEBUG)
-        self.lin_debug = lin_debug
-        self.lin_console = lin_console  # Flag to dump LIN bus activity to console
+        self.lin_debug = lin_debug    
         self.app = inetboxapp.InetboxApp(inet_debug)
         self.pin_map.set_led("lin_led", False)
         print("Lin initialized")
-        if lin_console:
-            print("LIN console logging enabled - all bus activity will be dumped")
 
     def response_waiting(self):
         return len(self.ts_response_buffer)
@@ -95,31 +89,10 @@ class Lin:
 
 
     def _send_answer(self, databytes):
-        # Console logging: dump transmitted LIN frame
-        if self.lin_console:
-            hex_str = " ".join(f"{b:02x}" for b in databytes)
-            msg = f"LIN TX: {hex_str} (len: {len(databytes)})"
-            print(msg)
-            self._add_debug_msg(msg)
         self.serial.write(databytes)
         self.serial.flush()
         self.log.debug("out > " + str(databytes.hex(" ")))
         self.pin_map.toggle_led("lin_led")
-    
-    def _add_debug_msg(self, msg):
-        """Add debug message to buffer for web UI display"""
-        self.lin_debug_buffer.append(msg)
-        # Keep buffer size manageable
-        if len(self.lin_debug_buffer) > self.LIN_DEBUG_BUFFER_MAX:
-            self.lin_debug_buffer.pop(0)
-    
-    def get_debug_output(self):
-        """Get LIN debug output for web UI"""
-        return self.lin_debug_buffer.copy()
-    
-    def clear_debug_output(self):
-        """Clear LIN debug output buffer"""
-        self.lin_debug_buffer = []
 
 
     def prepare_tl_str_response(self, message_str, info_str):
@@ -292,13 +265,6 @@ class Lin:
 
         raw_pid = line[2]
         if raw_pid in self.DISPLAY_STATUS_PIDS: print(f"status-message found with {raw_pid:x}")#0x20 0x61 0xe2 
-        
-        # Console logging: dump raw LIN frame
-        if self.lin_console:
-            hex_str = " ".join(f"{b:02x}" for b in line[:3])
-            msg = f"LIN RX: {hex_str} (PID: 0x{raw_pid:02x})"
-            print(msg)
-            self._add_debug_msg(msg)
 
 # Same approach for the raw PID 0xD8. This corresponds to a PID 0x18
         if raw_pid == 0xd8:
@@ -331,14 +297,6 @@ class Lin:
             pass
         #print("Debug:ici")
         line += self.serial.read(9)
-        
-        # Console logging: dump complete LIN frame
-        if self.lin_console:
-            hex_str = " ".join(f"{b:02x}" for b in line)
-            msg = f"LIN RX: {hex_str} (len: {len(line)}, PID: 0x{line[2]:02x})"
-            print(msg)
-            self._add_debug_msg(msg)
-        
         deb=""
         for b in line:
             deb=deb+f"{b:02x} "
